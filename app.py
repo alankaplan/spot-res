@@ -4,6 +4,46 @@ from flask import Flask, redirect, request, session, render_template, jsonify
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 from dotenv import load_dotenv
+import base64
+import requests
+from datetime import datetime
+
+def push_json_to_github():
+    token = os.getenv("GITHUB_TOKEN")
+    owner = os.getenv("GITHUB_REPO_OWNER")
+    repo = os.getenv("GITHUB_REPO_NAME")
+    branch = os.getenv("GITHUB_BRANCH", "main")
+    filename = "playback_data.json"
+    api_url = f"https://api.github.com/repos/{owner}/{repo}/contents/{filename}"
+
+    # Read the local JSON file
+    with open(filename, "rb") as f:
+        content = f.read()
+        encoded_content = base64.b64encode(content).decode("utf-8")
+
+    # Check if the file already exists to get the SHA
+    headers = {"Authorization": f"token {token}"}
+    response = requests.get(api_url, headers=headers, params={"ref": branch})
+    if response.status_code == 200:
+        sha = response.json()["sha"]
+    else:
+        sha = None
+
+    data = {
+        "message": f"Update playback data {datetime.utcnow().isoformat()}",
+        "content": encoded_content,
+        "branch": branch
+    }
+    if sha:
+        data["sha"] = sha
+
+    put_response = requests.put(api_url, headers=headers, json=data)
+
+    if put_response.status_code in [200, 201]:
+        print("✅ playback_data.json pushed to GitHub.")
+    else:
+        print("❌ Failed to push JSON to GitHub:", put_response.text)
+
 
 load_dotenv()
 
@@ -79,6 +119,7 @@ def save_playback():
             "progress_ms": progress_ms
         }
         save_playback_data(playback_data)
+        push_json_to_github()
 
         return {"status": "saved"}
     return {"error": "no playback"}, 400
