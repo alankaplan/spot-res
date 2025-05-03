@@ -21,6 +21,10 @@
         async function loadPlaylists() {
             const res = await fetch('/playlists');
             const data = await res.json();
+
+            // Sort playlists by name
+            data.items.sort((a, b) => a.name.localeCompare(b.name));
+
             const list = document.getElementById('playlist-list');
             list.innerHTML = '';
             for (const item of data.items) {
