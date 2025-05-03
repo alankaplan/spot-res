@@ -1,4 +1,5 @@
 import os
+import json
 from flask import Flask, redirect, request, session, render_template, jsonify
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
@@ -9,6 +10,7 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
 
+# Initialize Spotify OAuth
 sp_oauth = SpotifyOAuth(
     client_id=os.getenv("SPOTIPY_CLIENT_ID"),
     client_secret=os.getenv("SPOTIPY_CLIENT_SECRET"),
@@ -16,8 +18,20 @@ sp_oauth = SpotifyOAuth(
     scope="user-read-playback-state user-modify-playback-state user-read-currently-playing playlist-read-private"
 )
 
-# Store playback state in memory
-playback_store = {}
+# File path to store the playback data
+PLAYBACK_DATA_FILE = 'playback_data.json'
+
+# Load the playback data from the JSON file
+def load_playback_data():
+    if os.path.exists(PLAYBACK_DATA_FILE):
+        with open(PLAYBACK_DATA_FILE, 'r') as file:
+            return json.load(file)
+    return {}
+
+# Save the playback data to the JSON file
+def save_playback_data(data):
+    with open(PLAYBACK_DATA_FILE, 'w') as file:
+        json.dump(data, file)
 
 @app.route("/")
 def index():
@@ -54,11 +68,18 @@ def save_playback():
         playlist_uri = playback["context"]["uri"]
         track_uri = playback["item"]["uri"]
         progress_ms = playback["progress_ms"]
-        playback_store[user_id] = {
+        
+        # Load existing playback data
+        playback_data = load_playback_data()
+
+        # Save playback data to the JSON file
+        playback_data[user_id] = {
             "playlist_uri": playlist_uri,
             "track_uri": track_uri,
             "progress_ms": progress_ms
         }
+        save_playback_data(playback_data)
+
         return {"status": "saved"}
     return {"error": "no playback"}, 400
 
@@ -70,7 +91,11 @@ def resume():
     data = request.get_json()
     playlist_uri = data.get("playlist_uri")
 
-    entry = playback_store.get(user_id)
+    # Load playback data from JSON file
+    playback_data = load_playback_data()
+
+    # Fetch playback data for the user
+    entry = playback_data.get(user_id)
     if entry and entry["playlist_uri"] == playlist_uri:
         sp.start_playback(uris=[entry["track_uri"]], position_ms=entry["progress_ms"])
         return {"status": "resumed"}
