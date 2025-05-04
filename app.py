@@ -145,6 +145,17 @@ def resume():
     sp.start_playback(context_uri=playlist_uri)
     return {"status": "started"}
 
+@app.route("/pause", methods=["POST"])
+def pause():
+    token_info = session.get("token_info")
+    sp = spotipy.Spotify(auth=token_info["access_token"])
+    try:
+        sp.pause_playback()
+        return {"status": "paused"}
+    except spotipy.exceptions.SpotifyException as e:
+        return {"error": str(e)}, 400
+
+
 if __name__ == "__main__":
     app.run(debug=True)
 

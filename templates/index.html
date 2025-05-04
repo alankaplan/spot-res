@@ -12,6 +12,17 @@
 <body>
     <h1>Spotify Playlist Resume</h1>
 
+    <button onclick="pausePlayback()">Pause</button>
+
+    <script>
+        function pausePlayback() {
+            fetch('/pause', { method: 'POST' })
+                .then(res => res.json())
+                .then(data => alert(data.status || data.error));
+        }
+    </script>
+
+
     <button onclick="savePlayback()">💾 Save Current Playback</button>
 
     <h2>Playlists</h2>
