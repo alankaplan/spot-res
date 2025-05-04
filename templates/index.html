@@ -13,10 +13,17 @@
     <h1>Spotify Playlist Resume</h1>
 
     <button onclick="pausePlayback()">Pause</button>
+    <button onclick="resumePlayback()">Resume</button>
 
     <script>
         function pausePlayback() {
             fetch('/pause', { method: 'POST' })
+                .then(res => res.json())
+                .then(data => alert(data.status || data.error));
+        }
+
+        function resumePlayback() {
+            fetch('/play', { method: 'POST' })
                 .then(res => res.json())
                 .then(data => alert(data.status || data.error));
         }

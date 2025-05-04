@@ -155,6 +155,16 @@ def pause():
     except spotipy.exceptions.SpotifyException as e:
         return {"error": str(e)}, 400
 
+@app.route("/play", methods=["POST"])
+def play():
+    token_info = session.get("token_info")
+    sp = spotipy.Spotify(auth=token_info["access_token"])
+    try:
+        sp.start_playback()
+        return {"status": "resumed"}
+    except spotipy.exceptions.SpotifyException as e:
+        return {"error": str(e)}, 400
+
 
 if __name__ == "__main__":
     app.run(debug=True)
