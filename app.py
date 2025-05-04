@@ -61,10 +61,14 @@ sp_oauth = SpotifyOAuth(
 PLAYBACK_FILE = "playback_data.json"
 
 # Load playback data from file
-if os.path.exists(PLAYBACK_FILE):
-    with open(PLAYBACK_FILE, "r") as f:
-        playback_store = json.load(f)
-else:
+GITHUB_RAW_JSON_URL = os.getenv("GITHUB_JSON_URL")
+
+try:
+    response = requests.get(GITHUB_RAW_JSON_URL)
+    response.raise_for_status()
+    playback_store = response.json()
+except Exception as e:
+    print("Failed to load playback data from GitHub:", e)
     playback_store = {}
 
 # Save playback data to file
