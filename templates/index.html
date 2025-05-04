@@ -12,22 +12,38 @@
 <body>
     <h1>Spotify Playlist Resume</h1>
 
-    <button onclick="pausePlayback()">Pause</button>
-    <button onclick="resumePlayback()">Resume</button>
+    <button id="toggleButton" onclick="togglePlayback()">Loading...</button>
 
     <script>
-        function pausePlayback() {
-            fetch('/pause', { method: 'POST' })
-                .then(res => res.json())
-                .then(data => alert(data.status || data.error));
+        let isPlaying = false;
+
+        function updateButtonLabel() {
+            document.getElementById("toggleButton").textContent = isPlaying ? "Pause" : "Play";
         }
 
-        function resumePlayback() {
-            fetch('/play', { method: 'POST' })
+        function fetchPlaybackState() {
+            fetch('/playback_state')
                 .then(res => res.json())
-                .then(data => alert(data.status || data.error));
+                .then(data => {
+                    isPlaying = data.is_playing;
+                    updateButtonLabel();
+                });
         }
+
+        function togglePlayback() {
+            const endpoint = isPlaying ? '/pause' : '/play';
+            fetch(endpoint, { method: 'POST' })
+                .then(res => res.json())
+                .then(() => {
+                    isPlaying = !isPlaying;
+                    updateButtonLabel();
+                });
+        }
+
+        // Check state on load
+        fetchPlaybackState();
     </script>
+
 
 
     <button onclick="savePlayback()">💾 Save Current Playback</button>

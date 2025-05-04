@@ -165,6 +165,13 @@ def play():
     except spotipy.exceptions.SpotifyException as e:
         return {"error": str(e)}, 400
 
+@app.route("/playback_state")
+def playback_state():
+    token_info = session.get("token_info")
+    sp = spotipy.Spotify(auth=token_info["access_token"])
+    playback = sp.current_playback()
+    return {"is_playing": playback["is_playing"] if playback else False}
+
 
 if __name__ == "__main__":
     app.run(debug=True)
