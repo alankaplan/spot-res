@@ -132,18 +132,19 @@ def resume():
     data = request.get_json()
     playlist_uri = data.get("playlist_uri")
 
-    # Load playback data from JSON file
-    playback_data = load_playback_data()
-
-    # Fetch playback data for the user
-    entry = playback_data.get(user_id)
+    entry = playback_store.get(user_id)
     if entry and entry["playlist_uri"] == playlist_uri:
-        sp.start_playback(uris=[entry["track_uri"]], position_ms=entry["progress_ms"])
+        sp.start_playback(
+            context_uri=playlist_uri,
+            offset={"uri": entry["track_uri"]},
+            position_ms=entry["progress_ms"]
+        )
         return {"status": "resumed"}
 
     # fallback: just play the playlist
     sp.start_playback(context_uri=playlist_uri)
     return {"status": "started"}
+
 
 if __name__ == "__main__":
     app.run(debug=True)
