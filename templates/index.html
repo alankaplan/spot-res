@@ -48,47 +48,41 @@
 
     <button onclick="savePlayback()">💾 Save Current Playback</button>
 
-    <h2>Playlists</h2>
-    <ul id="playlist-list"></ul>
+    <div id="playlists"></div>
 
     <script>
-        async function loadPlaylists() {
-            const res = await fetch('/playlists');
-            const data = await res.json();
-
-            // Sort playlists by name
-            data.items.sort((a, b) => a.name.localeCompare(b.name));
-
-            const list = document.getElementById('playlist-list');
-            list.innerHTML = '';
-            for (const item of data.items) {
-                const li = document.createElement('li');
-                const btn = document.createElement('button');
-                btn.textContent = `▶ Resume: ${item.name}`;
-                btn.onclick = () => resumePlaylist(item.uri);
-                li.appendChild(btn);
-                list.appendChild(li);
-            }
-        }
-
-        async function savePlayback() {
-            const res = await fetch('/save');
-            const data = await res.json();
-            alert(data.status || data.error);
-        }
-
-        async function resumePlaylist(uri) {
-            const res = await fetch('/resume', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ playlist_uri: uri })
+    fetch('/playlists')
+        .then(res => res.json())
+        .then(playlists => {
+            const container = document.getElementById('playlists');
+            container.innerHTML = '';
+            playlists.forEach(pl => {
+                const div = document.createElement('div');
+                div.innerHTML = `
+                    <p>${pl.name}</p>
+                    ${pl.progress_pct !== null ? `
+                        <div style="background:#ccc; width:200px; height:10px;">
+                            <div style="background:#1db954; height:100%; width:${pl.progress_pct}%;"></div>
+                        </div>` : '<small>No saved progress</small>'
+                    }
+                    <button onclick="resumePlaylist('${pl.uri}')">Resume</button>
+                    <hr>
+                `;
+                container.appendChild(div);
             });
-            const data = await res.json();
-            alert(data.status || data.error);
-        }
+        });
 
-        loadPlaylists();
+    function resumePlaylist(uri) {
+        fetch('/resume', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ playlist_uri: uri })
+        }).then(res => res.json())
+          .then(data => alert(data.status || data.error));
+    }
     </script>
+
+
 </body>
 </html>
 

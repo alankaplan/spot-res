@@ -98,8 +98,33 @@ def callback():
 def get_playlists():
     token_info = session.get("token_info")
     sp = spotipy.Spotify(auth=token_info["access_token"])
-    playlists = sp.current_user_playlists()
-    return jsonify(playlists)
+    user_id = sp.me()["id"]
+    playlists = sp.current_user_playlists()["items"]
+
+    result = []
+    saved_data = playback_store.get(user_id, {})
+
+    for playlist in playlists:
+        uri = playlist["uri"]
+        saved = saved_data.get(uri)
+        progress_pct = None
+
+        if saved:
+            try:
+                track = sp.track(saved["track_uri"])
+                duration = track["duration_ms"]
+                progress_pct = int((saved["progress_ms"] / duration) * 100)
+            except:
+                progress_pct = None
+
+        result.append({
+            "name": playlist["name"],
+            "uri": uri,
+            "progress_pct": progress_pct
+        })
+
+    return jsonify(result)
+
 
 @app.route("/save")
 def save_playback():
