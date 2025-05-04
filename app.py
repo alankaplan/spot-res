@@ -4,53 +4,12 @@ from flask import Flask, redirect, request, session, render_template, jsonify
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 from dotenv import load_dotenv
-import base64
-import requests
-from datetime import datetime
-
-def push_json_to_github():
-    token = os.getenv("GITHUB_TOKEN")
-    owner = os.getenv("GITHUB_REPO_OWNER")
-    repo = os.getenv("GITHUB_REPO_NAME")
-    branch = os.getenv("GITHUB_BRANCH", "main")
-    filename = "playback_data.json"
-    api_url = f"https://api.github.com/repos/{owner}/{repo}/contents/{filename}"
-
-    # Read the local JSON file
-    with open(filename, "rb") as f:
-        content = f.read()
-        encoded_content = base64.b64encode(content).decode("utf-8")
-
-    # Check if the file already exists to get the SHA
-    headers = {"Authorization": f"token {token}"}
-    response = requests.get(api_url, headers=headers, params={"ref": branch})
-    if response.status_code == 200:
-        sha = response.json()["sha"]
-    else:
-        sha = None
-
-    data = {
-        "message": f"Update playback data {datetime.utcnow().isoformat()}",
-        "content": encoded_content,
-        "branch": branch
-    }
-    if sha:
-        data["sha"] = sha
-
-    put_response = requests.put(api_url, headers=headers, json=data)
-
-    if put_response.status_code in [200, 201]:
-        print("✅ playback_data.json pushed to GitHub.")
-    else:
-        print("❌ Failed to push JSON to GitHub:", put_response.text)
-
 
 load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
 
-# Initialize Spotify OAuth
 sp_oauth = SpotifyOAuth(
     client_id=os.getenv("SPOTIPY_CLIENT_ID"),
     client_secret=os.getenv("SPOTIPY_CLIENT_SECRET"),
@@ -58,20 +17,20 @@ sp_oauth = SpotifyOAuth(
     scope="user-read-playback-state user-modify-playback-state user-read-currently-playing playlist-read-private"
 )
 
-# File path to store the playback data
-PLAYBACK_DATA_FILE = 'playback_data.json'
+# Persistent storage file
+PLAYBACK_FILE = "playback_data.json"
 
-# Load the playback data from the JSON file
-def load_playback_data():
-    if os.path.exists(PLAYBACK_DATA_FILE):
-        with open(PLAYBACK_DATA_FILE, 'r') as file:
-            return json.load(file)
-    return {}
+# Load playback data from file
+if os.path.exists(PLAYBACK_FILE):
+    with open(PLAYBACK_FILE, "r") as f:
+        playback_store = json.load(f)
+else:
+    playback_store = {}
 
-# Save the playback data to the JSON file
-def save_playback_data(data):
-    with open(PLAYBACK_DATA_FILE, 'w') as file:
-        json.dump(data, file)
+# Save playback data to file
+def save_playback_data():
+    with open(PLAYBACK_FILE, "w") as f:
+        json.dump(playback_store, f)
 
 @app.route("/")
 def index():
@@ -108,19 +67,15 @@ def save_playback():
         playlist_uri = playback["context"]["uri"]
         track_uri = playback["item"]["uri"]
         progress_ms = playback["progress_ms"]
-        
-        # Load existing playback data
-        playback_data = load_playback_data()
 
-        # Save playback data to the JSON file
-        playback_data[user_id] = {
-            "playlist_uri": playlist_uri,
+        if user_id not in playback_store:
+            playback_store[user_id] = {}
+
+        playback_store[user_id][playlist_uri] = {
             "track_uri": track_uri,
             "progress_ms": progress_ms
         }
-        save_playback_data(playback_data)
-        push_json_to_github()
-
+        save_playback_data()
         return {"status": "saved"}
     return {"error": "no playback"}, 400
 
@@ -132,9 +87,8 @@ def resume():
     data = request.get_json()
     playlist_uri = data.get("playlist_uri")
 
-    playback_data = load_playback_data()
-    entry = playback_data.get(user_id)
-    if entry and entry["playlist_uri"] == playlist_uri:
+    entry = playback_store.get(user_id, {}).get(playlist_uri)
+    if entry:
         sp.start_playback(
             context_uri=playlist_uri,
             offset={"uri": entry["track_uri"]},
@@ -145,7 +99,6 @@ def resume():
     # fallback: just play the playlist
     sp.start_playback(context_uri=playlist_uri)
     return {"status": "started"}
-
 
 if __name__ == "__main__":
     app.run(debug=True)
