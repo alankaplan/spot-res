@@ -132,7 +132,8 @@ def resume():
     data = request.get_json()
     playlist_uri = data.get("playlist_uri")
 
-    entry = playback_store.get(user_id)
+    playback_data = load_playback_data()
+    entry = playback_data.get(user_id)
     if entry and entry["playlist_uri"] == playlist_uri:
         sp.start_playback(
             context_uri=playlist_uri,
