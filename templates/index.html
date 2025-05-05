@@ -59,15 +59,18 @@
             playlists.forEach(pl => {
                 const div = document.createElement('div');
                 div.innerHTML = `
-                    <p>${pl.name}</p>
-                    ${pl.progress_pct !== null ? `
-                        <div style="background:#ccc; width:200px; height:10px;">
-                            <div style="background:#1db954; height:100%; width:${pl.progress_pct}%;"></div>
-                        </div>` : '<small>No saved progress</small>'
-                    }
-                    <button onclick="resumePlaylist('${pl.uri}')">Resume</button>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <strong>${pl.name}</strong>
+                        ${pl.progress_pct !== null ? `
+                            <div style="flex: 1; max-width: 200px; height: 10px; background: #ccc;">
+                                <div style="width: ${pl.progress_pct}%; height: 100%; background: #1db954;"></div>
+                            </div>
+                        ` : '<small>No saved progress</small>'}
+                        <button onclick="resumePlaylist('${pl.uri}')">Resume</button>
+                    </div>
                     <hr>
                 `;
+
                 container.appendChild(div);
             });
         });
