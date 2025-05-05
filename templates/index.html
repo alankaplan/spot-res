@@ -77,6 +77,9 @@
                         div.style.marginBottom = '10px';
 
                         const button = document.createElement('button');
+                        button.style.textAlign = 'left';
+                        button.style.padding = '6px 12px'; // Optional: adds spacing around text
+
                         button.textContent = `▶ Resume: ${pl.name}`;
                         button.onclick = () => resumePlaylist(pl.uri);
                         button.style.flex = '0 0 auto';
