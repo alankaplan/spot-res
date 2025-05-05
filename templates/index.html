@@ -2,17 +2,18 @@
 <html>
 <head>
     <title>Spotify Resume</title>
-    <style>
-        body { font-family: sans-serif; margin: 2em; }
-        button { margin: 0.5em 0; padding: 0.5em 1em; }
-        ul { list-style: none; padding: 0; }
-        li { margin: 0.5em 0; }
-    </style>
+    <meta charset="UTF-8">
 </head>
 <body>
-    <h1>Spotify Playlist Resume</h1>
+    <h2>Spotify Resume</h2>
 
-    <button id="toggleButton" onclick="togglePlayback()">Loading...</button>
+    <div style="margin-bottom: 10px;">
+        <button id="toggleButton" onclick="togglePlayback()">Loading...</button>
+        <button onclick="savePlayback()">Save Current Playback</button>
+    </div>
+    <hr>
+
+    <div id="playlists"></div>
 
     <script>
         let isPlaying = false;
@@ -40,58 +41,72 @@
                 });
         }
 
-        // Check state on load
+        function savePlayback() {
+            fetch('/save')
+                .then(res => res.json())
+                .then(data => {
+                    alert(data.status || data.error);
+                    loadPlaylists(); // refresh progress bars
+                });
+        }
+
+        function resumePlaylist(uri) {
+            fetch('/resume', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ playlist_uri: uri })
+            }).then(res => res.json())
+              .then(data => alert(data.status || data.error));
+        }
+
+        function loadPlaylists() {
+            fetch('/playlists')
+                .then(res => res.json())
+                .then(playlists => {
+                    const container = document.getElementById('playlists');
+                    container.innerHTML = '';
+
+                    playlists.forEach(pl => {
+                        const div = document.createElement('div');
+                        div.style.display = 'flex';
+                        div.style.alignItems = 'center';
+                        div.style.gap = '10px';
+                        div.style.marginBottom = '10px';
+
+                        const name = document.createElement('span');
+                        name.textContent = pl.name;
+                        name.style.width = '150px';
+
+                        const progressContainer = document.createElement('div');
+                        progressContainer.style.flex = '1';
+                        progressContainer.style.height = '10px';
+                        progressContainer.style.background = '#ccc';
+                        progressContainer.style.borderRadius = '5px';
+                        progressContainer.style.overflow = 'hidden';
+
+                        const progressBar = document.createElement('div');
+                        progressBar.style.height = '100%';
+                        progressBar.style.background = '#1db954';
+                        progressBar.style.width = pl.progress_pct !== null ? pl.progress_pct + '%' : '0%';
+                        progressBar.style.transition = 'width 0.3s ease';
+
+                        progressContainer.appendChild(progressBar);
+
+                        const button = document.createElement('button');
+                        button.textContent = 'Resume';
+                        button.onclick = () => resumePlaylist(pl.uri);
+
+                        div.appendChild(name);
+                        div.appendChild(progressContainer);
+                        div.appendChild(button);
+                        container.appendChild(div);
+                    });
+                });
+        }
+
         fetchPlaybackState();
+        loadPlaylists();
     </script>
-
-
-
-    <button onclick="savePlayback()">💾 Save Current Playback</button>
-
-    <div id="playlists"></div>
-
-    <script>
-    fetch('/playlists')
-        .then(res => res.json())
-        .then(playlists => {
-            const container = document.getElementById('playlists');
-            container.innerHTML = '';
-            playlists.forEach(pl => {
-                const div = document.createElement('div');
-                div.innerHTML = `
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <strong>${pl.name}</strong>
-                        ${pl.progress_pct !== null ? `
-                            <div style="flex: 1; max-width: 200px; height: 10px; background: #ccc;">
-                                <div style="width: ${pl.progress_pct}%; height: 100%; background: #1db954;"></div>
-                            </div>
-                        ` : '<small>No saved progress</small>'}
-                        <button onclick="resumePlaylist('${pl.uri}')">Resume</button>
-                    </div>
-                    <hr>
-                `;
-
-                container.appendChild(div);
-            });
-        });
-
-    function savePlayback() {
-        const res = await fetch('/save');
-        const data = await res.json();
-        alert(data.status || data.error);
-    }
-
-    function resumePlaylist(uri) {
-        fetch('/resume', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ playlist_uri: uri })
-        }).then(res => res.json())
-          .then(data => alert(data.status || data.error));
-    }
-    </script>
-
-
 </body>
 </html>
 
