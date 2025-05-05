@@ -94,6 +94,7 @@ def callback():
     session["token_info"] = token_info
     return redirect("/")
 
+
 @app.route("/playlists")
 def get_playlists():
     token_info = session.get("token_info")
@@ -111,10 +112,24 @@ def get_playlists():
 
         if saved:
             try:
-                track = sp.track(saved["track_uri"])
-                duration = track["duration_ms"]
-                progress_pct = int((saved["progress_ms"] / duration) * 100)
-            except:
+                playlist_id = playlist["id"]
+                tracks = []
+                offset = 0
+
+                # Handle paginated results
+                while True:
+                    response = sp.playlist_items(playlist_id, offset=offset, fields="items.track.uri,total,next")
+                    tracks += [item["track"]["uri"] for item in response["items"] if item["track"]]
+                    if response.get("next"):
+                        offset += len(response["items"])
+                    else:
+                        break
+
+                if saved["track_uri"] in tracks:
+                    index = tracks.index(saved["track_uri"])
+                    progress_pct = int((index / len(tracks)) * 100)
+            except Exception as e:
+                print("Error processing playlist progress:", e)
                 progress_pct = None
 
         result.append({
