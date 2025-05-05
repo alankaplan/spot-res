@@ -76,9 +76,11 @@
                         div.style.gap = '10px';
                         div.style.marginBottom = '10px';
 
-                        const name = document.createElement('span');
-                        name.textContent = pl.name;
-                        name.style.width = '150px';
+                        const button = document.createElement('button');
+                        button.textContent = pl.name;
+                        button.onclick = () => resumePlaylist(pl.uri);
+                        button.style.flex = '0 0 auto';
+                        button.style.minWidth = '150px';
 
                         const progressContainer = document.createElement('div');
                         progressContainer.style.flex = '1';
@@ -95,13 +97,8 @@
 
                         progressContainer.appendChild(progressBar);
 
-                        const button = document.createElement('button');
-                        button.textContent = 'Resume';
-                        button.onclick = () => resumePlaylist(pl.uri);
-
-                        div.appendChild(name);
-                        div.appendChild(progressContainer);
                         div.appendChild(button);
+                        div.appendChild(progressContainer);
                         container.appendChild(div);
                     });
                 });
