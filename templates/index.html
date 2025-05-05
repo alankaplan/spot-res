@@ -63,6 +63,9 @@
             fetch('/playlists')
                 .then(res => res.json())
                 .then(playlists => {
+                    // 🔤 Sort alphabetically by playlist name
+                    playlists.sort((a, b) => a.name.localeCompare(b.name));
+
                     const container = document.getElementById('playlists');
                     container.innerHTML = '';
 
@@ -103,6 +106,7 @@
                     });
                 });
         }
+
 
         fetchPlaybackState();
         loadPlaylists();
