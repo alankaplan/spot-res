@@ -10,6 +10,7 @@
     <div style="margin-bottom: 10px;">
         <button id="toggleButton" onclick="togglePlayback()">Loading...</button>
         <button onclick="savePlayback()">Save Current Playback</button>
+        <button id="stop-autosave">Stop Autosave</button>
     </div>
     <hr>
 
@@ -126,7 +127,7 @@
         fetchPlaybackState();
         loadPlaylists();
 
-        setInterval(() => {
+        let autosaveInterval = setInterval(() => {
             fetch('/playback_state')
                 .then(res => res.json())
                 .then(data => {
@@ -146,6 +147,13 @@
                 });
         }, 60000);
 
+
+    // Stop autosave
+    document.getElementById('stop-autosave').onclick = () => {
+        clearInterval(autosaveInterval);
+        autosaveMsg.textContent = 'Autosave stopped';
+        console.log('Autosave disabled');
+    };
 
     </script>
 
