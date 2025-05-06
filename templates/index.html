@@ -110,6 +110,24 @@
 
         fetchPlaybackState();
         loadPlaylists();
+        // Autosave every 60 seconds — only if something is playing
+        setInterval(() => {
+            fetch('/playback_state')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.is_playing) {
+                        fetch('/save')
+                            .then(res => res.json())
+                            .then(data => {
+                                console.log('Autosave:', data.status || data.error);
+                                loadPlaylists(); // Optional: refresh progress bars
+                            });
+                    } else {
+                        console.log('Autosave skipped: not playing');
+                    }
+                });
+        }, 60000); // 60 seconds
+
     </script>
 </body>
 </html>
