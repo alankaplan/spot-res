@@ -21,6 +21,7 @@
 
     <script>
         let isPlaying = false;
+        const autosaveMsg = document.getElementById('autosave-msg');
 
         function updateButtonLabel() {
             document.getElementById("toggleButton").textContent = isPlaying ? "Pause" : "Play";
@@ -43,6 +44,16 @@
                     isPlaying = !isPlaying;
                     updateButtonLabel();
                 });
+            if (!isPlaying){
+                fetch('/save')
+                    .then(res => res.json())
+                    .then(data => {
+                        const now = new Date().toLocaleTimeString();
+                        autosaveMsg.textContent = `Saved at ${now}`;
+                        console.log('Autosave:', data.status || data.error);
+                        loadPlaylists();
+                    });
+            }
         }
 
         function savePlayback() {
@@ -114,7 +125,6 @@
 
         fetchPlaybackState();
         loadPlaylists();
-        const autosaveMsg = document.getElementById('autosave-msg');
 
         setInterval(() => {
             fetch('/playback_state')
