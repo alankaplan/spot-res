@@ -140,10 +140,6 @@
                                 console.log('Autosave:', data.status || data.error);
                                 loadPlaylists();
                             });
-                    } else {
-                        autosaveMsg.textContent = 'Paused – no autosave';
-                        console.log('Autosave skipped: not playing');
-                    }
                 });
         }, 60000);
 
