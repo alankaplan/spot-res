@@ -44,7 +44,7 @@
                     isPlaying = !isPlaying;
                     updateButtonLabel();
                 });
-            if (!isPlaying){
+            if (isPlaying){
                 fetch('/save')
                     .then(res => res.json())
                     .then(data => {
