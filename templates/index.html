@@ -110,7 +110,8 @@
 
         fetchPlaybackState();
         loadPlaylists();
-        // Autosave every 60 seconds — only if something is playing
+        const autosaveMsg = document.getElementById('autosave-msg');
+
         setInterval(() => {
             fetch('/playback_state')
                 .then(res => res.json())
@@ -119,16 +120,24 @@
                         fetch('/save')
                             .then(res => res.json())
                             .then(data => {
+                                const now = new Date().toLocaleTimeString();
+                                autosaveMsg.textContent = `Saved at ${now}`;
                                 console.log('Autosave:', data.status || data.error);
-                                loadPlaylists(); // Optional: refresh progress bars
+                                loadPlaylists();
                             });
                     } else {
+                        autosaveMsg.textContent = 'Paused – no autosave';
                         console.log('Autosave skipped: not playing');
                     }
                 });
-        }, 60000); // 60 seconds
+        }, 60000);
+
 
     </script>
+    <div id="autosave-status" style="margin-top: 20px; font-size: 0.9em; color: #666;">
+      Autosave status: <span id="autosave-msg">Waiting...</span>
+    </div>
+
 </body>
 </html>
 
