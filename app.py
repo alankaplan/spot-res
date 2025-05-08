@@ -177,7 +177,8 @@ def resume():
         sp.start_playback(
             context_uri=playlist_uri,
             offset={"uri": entry["track_uri"]},
-            position_ms=entry["progress_ms"]
+            #position_ms=entry["progress_ms"]
+            position_ms=0
         )
         return {"status": "resumed"}
 
