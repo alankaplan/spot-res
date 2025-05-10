@@ -4,146 +4,103 @@
     <title>Spotify Resume</title>
     <meta charset="UTF-8">
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        h2 {
-            text-align: center;
-        }
-        .controls {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 15px;
-        }
-        .playlist {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 10px;
-        }
-        .playlist button {
-            flex: 1;
-            text-align: left;
-            padding: 6px 12px;
-            background-color: #1db954;
-            color: #fff;
-            border: none;
+        .resume-button {
+            background-color: #ffffff;
+            color: #000000;
+            border: 1px solid #1db954;
+            padding: 8px 12px;
+            font-size: 14px;
             cursor: pointer;
-            border-radius: 4px;
-            transition: background 0.3s;
+            transition: background-color 0.3s, color 0.3s;
         }
-        .playlist button:hover {
-            background-color: #179142;
+
+        .resume-button.active {
+            background-color: #1db954;
+            color: #ffffff;
         }
-        .progress {
-            width: 100px;
-            height: 6px;
+
+        .progress-bar-container {
+            width: 120px;
+            height: 10px;
             background: #ccc;
             border-radius: 4px;
             overflow: hidden;
+            margin-left: 10px;
         }
+
         .progress-bar {
             height: 100%;
             background: #1db954;
             transition: width 0.3s ease;
         }
-        #autosave-status {
-            margin-top: 20px;
-            font-size: 0.9em;
-            color: #666;
-            text-align: center;
+
+        .playlist-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
         }
     </style>
 </head>
 <body>
+    <h2>Spotify Resume</h2>
 
-<h2>Spotify Resume</h2>
+    <div id="playlists"></div>
+    
+    <script>
+        function resumePlaylist(uri, button) {
+            fetch('/resume', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ playlist_uri: uri })
+            }).then(res => res.json())
+              .then(data => {
+                  alert(data.status || data.error);
+                  setActiveButton(button);
+              });
+        }
 
-<div class="controls">
-    <button onclick="savePlayback()">Save Current Playback</button>
-    <button id="stop-autosave">Stop Autosave</button>
-</div>
-
-<hr>
-<div id="playlists"></div>
-<div id="autosave-status">Autosave status: <span id="autosave-msg">Waiting...</span></div>
-
-<script>
-    const autosaveMsg = document.getElementById('autosave-msg');
-    let autosaveInterval;
-
-    function savePlayback() {
-        fetch('/save')
-            .then(res => res.json())
-            .then(data => {
-                const now = new Date().toLocaleTimeString();
-                autosaveMsg.textContent = `Saved at ${now}`;
-                loadPlaylists();
+        function setActiveButton(button) {
+            // Remove active class from all buttons
+            document.querySelectorAll('.resume-button').forEach(btn => {
+                btn.classList.remove('active');
             });
-    }
+            // Add active class to the pressed button
+            button.classList.add('active');
+        }
 
-    function resumePlaylist(uri) {
-        fetch('/resume', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ playlist_uri: uri })
-        }).then(() => loadPlaylists());
-    }
-
-    function loadPlaylists() {
-        fetch('/playlists')
-            .then(res => res.json())
-            .then(playlists => {
-                const container = document.getElementById('playlists');
-                container.innerHTML = '';
-
-                playlists.sort((a, b) => a.name.localeCompare(b.name));
-                playlists.forEach(pl => {
-                    const div = document.createElement('div');
-                    div.className = 'playlist';
-
-                    const button = document.createElement('button');
-                    button.textContent = `▶ ${pl.name}`;
-                    button.onclick = () => resumePlaylist(pl.uri);
-
-                    const progressContainer = document.createElement('div');
-                    progressContainer.className = 'progress';
-
-                    const progressBar = document.createElement('div');
-                    progressBar.className = 'progress-bar';
-                    progressBar.style.width = pl.progress_pct ? pl.progress_pct + '%' : '0%';
-
-                    progressContainer.appendChild(progressBar);
-                    div.appendChild(button);
-                    div.appendChild(progressContainer);
-                    container.appendChild(div);
-                });
-            });
-    }
-
-    function startAutosave() {
-        if (autosaveInterval) clearInterval(autosaveInterval);
-        autosaveInterval = setInterval(() => {
-            fetch('/playback_state')
+        function loadPlaylists() {
+            fetch('/playlists')
                 .then(res => res.json())
-                .then(data => {
-                    if (data.is_playing) savePlayback();
+                .then(playlists => {
+                    const container = document.getElementById('playlists');
+                    container.innerHTML = '';
+
+                    playlists.forEach(pl => {
+                        const div = document.createElement('div');
+                        div.className = 'playlist-item';
+
+                        const button = document.createElement('button');
+                        button.className = 'resume-button';
+                        button.textContent = pl.name;
+                        button.onclick = () => resumePlaylist(pl.uri, button);
+
+                        const progressContainer = document.createElement('div');
+                        progressContainer.className = 'progress-bar-container';
+
+                        const progressBar = document.createElement('div');
+                        progressBar.className = 'progress-bar';
+                        progressBar.style.width = pl.progress_pct !== null ? pl.progress_pct + '%' : '0%';
+
+                        progressContainer.appendChild(progressBar);
+                        div.appendChild(button);
+                        div.appendChild(progressContainer);
+                        container.appendChild(div);
+                    });
                 });
-        }, 60000);
-    }
+        }
 
-    document.getElementById('stop-autosave').onclick = () => {
-        clearInterval(autosaveInterval);
-        autosaveMsg.textContent = 'Autosave stopped';
-    };
-
-    loadPlaylists();
-    startAutosave();
-</script>
-
+        loadPlaylists();
+    </script>
 </body>
 </html>
 
