@@ -100,15 +100,37 @@ def get_playlists():
     user_id = sp.me()["id"]
     playlists = sp.current_user_playlists()["items"]
 
+    result = []
     saved_data = playback_store.get(user_id, {})
-    result = [
-        {
-            "name": pl["name"],
-            "uri": pl["uri"],
-            "progress_pct": calculate_progress(sp, pl, saved_data.get(pl["uri"]))
-        }
-        for pl in playlists
-    ]
+
+    for playlist in playlists:
+        uri = playlist["uri"]
+        saved = saved_data.get(uri)
+        progress_pct = None
+
+        if saved:
+            try:
+                playlist_id = playlist["id"]
+                total_tracks = playlist["tracks"]["total"]
+                track_uri = saved["track_uri"]
+
+                # Fetch track index directly
+                tracks = sp.playlist_tracks(playlist_id, fields="items(track(uri))")["items"]
+                track_uris = [track["track"]["uri"] for track in tracks if track["track"]]
+                
+                if track_uri in track_uris:
+                    index = track_uris.index(track_uri)
+                    progress_pct = int((index / total_tracks) * 100)
+            except Exception as e:
+                print("Error calculating playlist progress:", e)
+                progress_pct = None
+
+        result.append({
+            "name": playlist["name"],
+            "uri": uri,
+            "progress_pct": progress_pct
+        })
+
     return jsonify(result)
 
 
