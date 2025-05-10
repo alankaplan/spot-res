@@ -3,156 +3,179 @@
 <head>
     <title>Spotify Resume</title>
     <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h2 {
+            text-align: center;
+        }
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+        .playlist {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .playlist button {
+            flex: 1;
+            text-align: left;
+            padding: 6px 12px;
+            background-color: #1db954;
+            color: #fff;
+            border: none;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background 0.3s;
+        }
+        .playlist button:hover {
+            background-color: #179142;
+        }
+        .progress {
+            width: 120px;
+            height: 8px;
+            background: #ccc;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .progress-bar {
+            height: 100%;
+            background: #1db954;
+            transition: width 0.3s ease;
+        }
+        #autosave-status {
+            margin-top: 20px;
+            font-size: 0.9em;
+            color: #666;
+            text-align: center;
+        }
+    </style>
 </head>
 <body>
-    <h2>Spotify Resume</h2>
 
-    <div style="margin-bottom: 10px;">
-        <button id="toggleButton" onclick="togglePlayback()">Loading...</button>
-        <button onclick="savePlayback()">Save Current Playback</button>
-        <button id="stop-autosave">Stop Autosave</button>
-    </div>
-    <hr>
+<h2>Spotify Resume</h2>
 
-    <div id="playlists"></div>
-    
-    <div id="autosave-status" style="margin-top: 20px; font-size: 0.9em; color: #666;">
-      Autosave status: <span id="autosave-msg">Waiting...</span>
-    </div>
+<div class="controls">
+    <button id="toggleButton" onclick="togglePlayback()">Loading...</button>
+    <button onclick="savePlayback()">Save Current Playback</button>
+    <button id="stop-autosave">Stop Autosave</button>
+</div>
 
-    <script>
-        let isPlaying = false;
-        const autosaveMsg = document.getElementById('autosave-msg');
+<hr>
+<div id="playlists"></div>
+<div id="autosave-status">Autosave status: <span id="autosave-msg">Waiting...</span></div>
 
-        function updateButtonLabel() {
-            document.getElementById("toggleButton").textContent = isPlaying ? "Pause" : "Play";
-        }
+<script>
+    let isPlaying = false;
+    const autosaveMsg = document.getElementById('autosave-msg');
+    let autosaveInterval;
 
-        function fetchPlaybackState() {
-            fetch('/playback_state')
-                .then(res => res.json())
-                .then(data => {
-                    isPlaying = data.is_playing;
-                    updateButtonLabel();
+    function updateButtonLabel() {
+        document.getElementById("toggleButton").textContent = isPlaying ? "Pause" : "Play";
+    }
+
+    function fetchPlaybackState() {
+        fetch('/playback_state')
+            .then(res => res.json())
+            .then(data => {
+                isPlaying = data.is_playing;
+                updateButtonLabel();
+            });
+    }
+
+    function togglePlayback() {
+        const endpoint = isPlaying ? '/pause' : '/play';
+        fetch(endpoint, { method: 'POST' })
+            .then(() => {
+                isPlaying = !isPlaying;
+                updateButtonLabel();
+                if (!isPlaying) savePlayback();
+            });
+    }
+
+    function savePlayback() {
+        fetch('/save')
+            .then(res => res.json())
+            .then(data => {
+                const now = new Date().toLocaleTimeString();
+                autosaveMsg.textContent = `Saved at ${now}`;
+                loadPlaylists();
+            });
+    }
+
+    function resumePlaylist(uri, startFromBeginning = false) {
+        fetch('/resume', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ playlist_uri: uri, start_from_beginning: startFromBeginning })
+        }).then(() => loadPlaylists());
+    }
+
+    function loadPlaylists() {
+        fetch('/playlists')
+            .then(res => res.json())
+            .then(playlists => {
+                playlists.sort((a, b) => a.name.localeCompare(b.name));
+                const container = document.getElementById('playlists');
+                container.innerHTML = '';
+
+                playlists.forEach(pl => {
+                    const div = document.createElement('div');
+                    div.className = 'playlist';
+
+                    const button = document.createElement('button');
+                    button.textContent = `▶ ${pl.name}`;
+                    button.onclick = () => resumePlaylist(pl.uri);
+
+                    const startButton = document.createElement('button');
+                    startButton.textContent = "▶ Start";
+                    startButton.style.marginLeft = "5px";
+                    startButton.onclick = () => resumePlaylist(pl.uri, true);
+
+                    const progressContainer = document.createElement('div');
+                    progressContainer.className = 'progress';
+                    const progressBar = document.createElement('div');
+                    progressBar.className = 'progress-bar';
+                    progressBar.style.width = pl.progress_pct ? pl.progress_pct + '%' : '0%';
+                    progressContainer.appendChild(progressBar);
+
+                    div.appendChild(button);
+                    div.appendChild(startButton);
+                    div.appendChild(progressContainer);
+                    container.appendChild(div);
                 });
-        }
+            });
+    }
 
-        function togglePlayback() {
-            const endpoint = isPlaying ? '/pause' : '/play';
-            fetch(endpoint, { method: 'POST' })
-                .then(res => res.json())
-                .then(() => {
-                    isPlaying = !isPlaying;
-                    updateButtonLabel();
-                });
-            if (isPlaying){
-                fetch('/save')
-                    .then(res => res.json())
-                    .then(data => {
-                        const now = new Date().toLocaleTimeString();
-                        autosaveMsg.textContent = `Saved at ${now}`;
-                        console.log('Autosave:', data.status || data.error);
-                        loadPlaylists();
-                    });
-            }
-        }
-
-        function savePlayback() {
-            fetch('/save')
-                .then(res => res.json())
-                .then(data => {
-                    alert(data.status || data.error);
-                    loadPlaylists(); // refresh progress bars
-                });
-        }
-
-        function resumePlaylist(uri) {
-            fetch('/resume', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ playlist_uri: uri })
-            }).then(res => res.json())
-              .then(data => alert(data.status || data.error));
-        }
-
-        function loadPlaylists() {
-            fetch('/playlists')
-                .then(res => res.json())
-                .then(playlists => {
-                    // 🔤 Sort alphabetically by playlist name
-                    playlists.sort((a, b) => a.name.localeCompare(b.name));
-
-                    const container = document.getElementById('playlists');
-                    container.innerHTML = '';
-
-                    playlists.forEach(pl => {
-                        const div = document.createElement('div');
-                        div.style.display = 'flex';
-                        div.style.alignItems = 'center';
-                        div.style.gap = '10px';
-                        div.style.marginBottom = '10px';
-
-                        const button = document.createElement('button');
-                        button.style.textAlign = 'left';
-                        button.style.padding = '6px 12px'; // Optional: adds spacing around text
-
-                        button.textContent = `▶ Resume: ${pl.name}`;
-                        button.onclick = () => resumePlaylist(pl.uri);
-                        button.style.flex = '0 0 auto';
-                        button.style.minWidth = '150px';
-
-                        const progressContainer = document.createElement('div');
-                        progressContainer.style.width = '120px';
-                        progressContainer.style.height = '10px';
-                        progressContainer.style.background = '#ccc';
-                        progressContainer.style.borderRadius = '4px';
-                        progressContainer.style.overflow = 'hidden';
-
-                        const progressBar = document.createElement('div');
-                        progressBar.style.height = '100%';
-                        progressBar.style.background = '#1db954';
-                        progressBar.style.width = pl.progress_pct !== null ? pl.progress_pct + '%' : '0%';
-                        progressBar.style.transition = 'width 0.3s ease';
-
-                        progressContainer.appendChild(progressBar);
-
-                        div.appendChild(button);
-                        div.appendChild(progressContainer);
-                        container.appendChild(div);
-                    });
-                });
-        }
-
-
-        fetchPlaybackState();
-        loadPlaylists();
-
-        let autosaveInterval = setInterval(() => {
+    function startAutosave() {
+        if (autosaveInterval) clearInterval(autosaveInterval);
+        autosaveInterval = setInterval(() => {
             fetch('/playback_state')
                 .then(res => res.json())
                 .then(data => {
                     if (data.is_playing) {
-                        fetch('/save')
-                            .then(res => res.json())
-                            .then(data => {
-                                const now = new Date().toLocaleTimeString();
-                                autosaveMsg.textContent = `Saved at ${now}`;
-                                console.log('Autosave:', data.status || data.error);
-                                loadPlaylists();
-                            });
+                        savePlayback();
                     }
                 });
         }, 60000);
+    }
 
-
-    // Stop autosave
     document.getElementById('stop-autosave').onclick = () => {
         clearInterval(autosaveInterval);
         autosaveMsg.textContent = 'Autosave stopped';
-        console.log('Autosave disabled');
     };
 
-    </script>
+    fetchPlaybackState();
+    loadPlaylists();
+    startAutosave();
+</script>
 
 </body>
 </html>
