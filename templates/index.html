@@ -39,7 +39,7 @@
             background-color: #179142;
         }
         .progress {
-            width: 120px;
+            flex: 0 0 120px;
             height: 8px;
             background: #ccc;
             border-radius: 4px;
@@ -110,11 +110,11 @@
             });
     }
 
-    function resumePlaylist(uri, startFromBeginning = false) {
+    function resumePlaylist(uri) {
         fetch('/resume', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ playlist_uri: uri, start_from_beginning: startFromBeginning })
+            body: JSON.stringify({ playlist_uri: uri })
         }).then(() => loadPlaylists());
     }
 
@@ -134,11 +134,6 @@
                     button.textContent = `▶ ${pl.name}`;
                     button.onclick = () => resumePlaylist(pl.uri);
 
-                    const startButton = document.createElement('button');
-                    startButton.textContent = "▶ Start";
-                    startButton.style.marginLeft = "5px";
-                    startButton.onclick = () => resumePlaylist(pl.uri, true);
-
                     const progressContainer = document.createElement('div');
                     progressContainer.className = 'progress';
                     const progressBar = document.createElement('div');
@@ -147,7 +142,6 @@
                     progressContainer.appendChild(progressBar);
 
                     div.appendChild(button);
-                    div.appendChild(startButton);
                     div.appendChild(progressContainer);
                     container.appendChild(div);
                 });
