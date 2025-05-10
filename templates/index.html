@@ -39,14 +39,33 @@
             align-items: center;
             margin-bottom: 10px;
         }
+
+        #autosave-status {
+            margin-top: 20px;
+            font-size: 0.9em;
+            color: #666;
+        }
     </style>
 </head>
 <body>
     <h2>Spotify Resume</h2>
 
+    <div style="margin-bottom: 10px;">
+        <button onclick="savePlayback()">Save Current Playback</button>
+        <button id="stop-autosave">Stop Autosave</button>
+    </div>
+    <hr>
+
     <div id="playlists"></div>
     
+    <div id="autosave-status">
+        Autosave status: <span id="autosave-msg">Waiting...</span>
+    </div>
+
     <script>
+        let autosaveInterval;
+        const autosaveMsg = document.getElementById('autosave-msg');
+
         function resumePlaylist(uri, button) {
             fetch('/resume', {
                 method: 'POST',
@@ -66,6 +85,17 @@
             });
             // Add active class to the pressed button
             button.classList.add('active');
+        }
+
+        function savePlayback() {
+            fetch('/save')
+                .then(res => res.json())
+                .then(data => {
+                    const now = new Date().toLocaleTimeString();
+                    autosaveMsg.textContent = `Saved at ${now}`;
+                    loadPlaylists(); // Refresh progress bars
+                    alert(data.status || data.error);
+                });
         }
 
         function loadPlaylists() {
@@ -99,7 +129,29 @@
                 });
         }
 
+        function startAutosave() {
+            if (autosaveInterval) clearInterval(autosaveInterval);
+
+            autosaveInterval = setInterval(() => {
+                fetch('/save')
+                    .then(res => res.json())
+                    .then(data => {
+                        const now = new Date().toLocaleTimeString();
+                        autosaveMsg.textContent = `Saved at ${now}`;
+                        console.log('Autosave:', data.status || data.error);
+                    });
+            }, 60000);
+        }
+
+        // Stop autosave
+        document.getElementById('stop-autosave').onclick = () => {
+            clearInterval(autosaveInterval);
+            autosaveMsg.textContent = 'Autosave stopped';
+            console.log('Autosave disabled');
+        };
+
         loadPlaylists();
+        startAutosave();
     </script>
 </body>
 </html>
