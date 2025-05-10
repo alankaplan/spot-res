@@ -8,40 +8,6 @@ import base64
 import requests
 from datetime import datetime
 
-
-def push_json_to_github():
-    token = os.getenv("GITHUB_TOKEN")
-    owner = os.getenv("GITHUB_REPO_OWNER")
-    repo = os.getenv("GITHUB_REPO_NAME")
-    branch = os.getenv("GITHUB_BRANCH", "main")
-    filename = "playback_data.json"
-    api_url = f"https://api.github.com/repos/{owner}/{repo}/contents/{filename}"
-
-    try:
-        with open(filename, "rb") as f:
-            content = f.read()
-        encoded_content = base64.b64encode(content).decode("utf-8")
-
-        headers = {"Authorization": f"token {token}"}
-        response = requests.get(api_url, headers=headers, params={"ref": branch})
-        sha = response.json().get("sha") if response.status_code == 200 else None
-
-        data = {
-            "message": f"Update playback data {datetime.utcnow().isoformat()}",
-            "content": encoded_content,
-            "branch": branch,
-            "sha": sha if sha else None
-        }
-
-        put_response = requests.put(api_url, headers=headers, json=data)
-        if put_response.status_code in [200, 201]:
-            print("✅ playback_data.json pushed to GitHub.")
-        else:
-            print("❌ Failed to push JSON to GitHub:", put_response.text)
-    except Exception as e:
-        print("❌ GitHub Push Error:", str(e))
-
-
 load_dotenv()
 
 app = Flask(__name__)
@@ -54,23 +20,54 @@ sp_oauth = SpotifyOAuth(
     scope="user-read-playback-state user-modify-playback-state user-read-currently-playing playlist-read-private"
 )
 
+# Persistent storage file
 PLAYBACK_FILE = "playback_data.json"
-GITHUB_RAW_JSON_URL = os.getenv("GITHUB_JSON_URL")
 
+# Load playback data from GitHub if available
+GITHUB_RAW_JSON_URL = os.getenv("GITHUB_JSON_URL")
 try:
     response = requests.get(GITHUB_RAW_JSON_URL)
     response.raise_for_status()
     playback_store = response.json()
+    print("✅ Loaded playback data from GitHub.")
 except Exception as e:
-    print("Failed to load playback data from GitHub:", e)
+    print("⚠️ Failed to load playback data from GitHub:", e)
     playback_store = {}
 
-
+# Save playback data to file and GitHub
 def save_playback_data():
     with open(PLAYBACK_FILE, "w") as f:
-        json.dump(playback_store, f, indent=2)
+        json.dump(playback_store, f)
     push_json_to_github()
 
+def push_json_to_github():
+    token = os.getenv("GITHUB_TOKEN")
+    owner = os.getenv("GITHUB_REPO_OWNER")
+    repo = os.getenv("GITHUB_REPO_NAME")
+    branch = os.getenv("GITHUB_BRANCH", "main")
+    filename = "playback_data.json"
+    api_url = f"https://api.github.com/repos/{owner}/{repo}/contents/{filename}"
+
+    with open(filename, "rb") as f:
+        content = f.read()
+        encoded_content = base64.b64encode(content).decode("utf-8")
+
+    headers = {"Authorization": f"token {token}"}
+    response = requests.get(api_url, headers=headers, params={"ref": branch})
+    sha = response.json()["sha"] if response.status_code == 200 else None
+
+    data = {
+        "message": f"Update playback data {datetime.utcnow().isoformat()}",
+        "content": encoded_content,
+        "branch": branch,
+        **({"sha": sha} if sha else {})
+    }
+
+    put_response = requests.put(api_url, headers=headers, json=data)
+    if put_response.status_code in [200, 201]:
+        print("✅ playback_data.json pushed to GitHub.")
+    else:
+        print("❌ Failed to push JSON to GitHub:", put_response.text)
 
 @app.route("/")
 def index():
@@ -78,12 +75,10 @@ def index():
         return redirect("/login")
     return render_template("index.html")
 
-
 @app.route("/login")
 def login():
     auth_url = sp_oauth.get_authorize_url()
     return redirect(auth_url)
-
 
 @app.route("/callback")
 def callback():
@@ -91,7 +86,6 @@ def callback():
     token_info = sp_oauth.get_access_token(code)
     session["token_info"] = token_info
     return redirect("/")
-
 
 @app.route("/playlists")
 def get_playlists():
@@ -111,18 +105,21 @@ def get_playlists():
         if saved:
             try:
                 playlist_id = playlist["id"]
-                total_tracks = playlist["tracks"]["total"]
-                track_uri = saved["track_uri"]
+                tracks = []
+                offset = 0
 
-                # Fetch track index directly
-                tracks = sp.playlist_tracks(playlist_id, fields="items(track(uri))")["items"]
-                track_uris = [track["track"]["uri"] for track in tracks if track["track"]]
-                
-                if track_uri in track_uris:
-                    index = track_uris.index(track_uri)
-                    progress_pct = int((index / total_tracks) * 100)
-            except Exception as e:
-                print("Error calculating playlist progress:", e)
+                # Load all tracks in the playlist
+                while True:
+                    response = sp.playlist_items(playlist_id, offset=offset, fields="items.track.uri,total,next")
+                    tracks += [item["track"]["uri"] for item in response["items"] if item["track"]]
+                    if not response.get("next"):
+                        break
+                    offset += len(response["items"])
+
+                if saved["track_uri"] in tracks:
+                    index = tracks.index(saved["track_uri"])
+                    progress_pct = int((index / len(tracks)) * 100)
+            except:
                 progress_pct = None
 
         result.append({
@@ -131,46 +128,31 @@ def get_playlists():
             "progress_pct": progress_pct
         })
 
-    return jsonify(result)
-
-
-def calculate_progress(sp, playlist, saved):
-    if not saved:
-        return None
-
-    try:
-        playlist_id = playlist["id"]
-        tracks = sp.playlist_items(playlist_id, fields="items.track.uri,total")["items"]
-        track_uris = [item["track"]["uri"] for item in tracks if item["track"]]
-
-        if saved["track_uri"] in track_uris:
-            index = track_uris.index(saved["track_uri"])
-            return int((index / len(track_uris)) * 100)
-    except Exception as e:
-        print("Error processing playlist progress:", e)
-    return None
-
+    return jsonify(sorted(result, key=lambda x: x["name"]))
 
 @app.route("/save")
 def save_playback():
     token_info = session.get("token_info")
     sp = spotipy.Spotify(auth=token_info["access_token"])
     playback = sp.current_playback()
+    
     if playback and playback.get("context"):
         user_id = sp.me()["id"]
         playlist_uri = playback["context"]["uri"]
         track_uri = playback["item"]["uri"]
         progress_ms = playback["progress_ms"]
 
-        playback_store.setdefault(user_id, {})[playlist_uri] = {
+        if user_id not in playback_store:
+            playback_store[user_id] = {}
+
+        playback_store[user_id][playlist_uri] = {
             "track_uri": track_uri,
             "progress_ms": progress_ms
         }
         save_playback_data()
         return {"status": "saved"}
-
+    
     return {"error": "no playback"}, 400
-
 
 @app.route("/resume", methods=["POST"])
 def resume():
@@ -179,47 +161,25 @@ def resume():
     user_id = sp.me()["id"]
     data = request.get_json()
     playlist_uri = data.get("playlist_uri")
-    entry = playback_store.get(user_id, {}).get(playlist_uri)
 
+    entry = playback_store.get(user_id, {}).get(playlist_uri)
     if entry:
         sp.start_playback(
             context_uri=playlist_uri,
             offset={"uri": entry["track_uri"]},
-            position_ms=0
+            position_ms=entry.get("progress_ms", 0)
         )
         return {"status": "resumed"}
 
     sp.start_playback(context_uri=playlist_uri)
     return {"status": "started"}
 
-
-@app.route("/pause", methods=["POST"])
-def pause():
-    return control_playback("pause_playback", "paused")
-
-
-@app.route("/play", methods=["POST"])
-def play():
-    return control_playback("start_playback", "resumed")
-
-
-def control_playback(action, success_status):
-    token_info = session.get("token_info")
-    sp = spotipy.Spotify(auth=token_info["access_token"])
-    try:
-        getattr(sp, action)()
-        return {"status": success_status}
-    except spotipy.exceptions.SpotifyException as e:
-        return {"error": str(e)}, 400
-
-
 @app.route("/playback_state")
 def playback_state():
     token_info = session.get("token_info")
     sp = spotipy.Spotify(auth=token_info["access_token"])
     playback = sp.current_playback()
-    return {"is_playing": playback.get("is_playing", False) if playback else False}
-
+    return {"is_playing": playback["is_playing"] if playback else False}
 
 if __name__ == "__main__":
     app.run(debug=True)
