@@ -14,6 +14,20 @@
             font-size: 0.9em;
             color: #666;
         }
+
+        .resume-button {
+            background-color: white;
+            color: black;
+            border: 1px solid #ddd;
+            padding: 6px 12px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .resume-button.active {
+            background-color: #1db954;
+            color: white;
+        }
     </style>
 </head>
 <body>
@@ -50,13 +64,24 @@
             savedMessage.style.display = "inline";
         }
 
-        function resumePlaylist(uri) {
+        function resumePlaylist(uri, button) {
             fetch('/resume', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ playlist_uri: uri })
             }).then(res => res.json())
-              .then(data => alert(data.status || data.error));
+              .then(data => {
+                  alert(data.status || data.error);
+                  if (data.status) {
+                      highlightActiveButton(button);
+                  }
+              });
+        }
+
+        function highlightActiveButton(button) {
+            const buttons = document.querySelectorAll('.resume-button');
+            buttons.forEach(btn => btn.classList.remove('active'));
+            button.classList.add('active');
         }
 
         function loadPlaylists() {
@@ -78,10 +103,9 @@
                         div.style.marginBottom = '10px';
 
                         const button = document.createElement('button');
-                        button.style.textAlign = 'left';
-                        button.style.padding = '6px 12px';
+                        button.className = 'resume-button';
                         button.textContent = `▶ Resume: ${pl.name}`;
-                        button.onclick = () => resumePlaylist(pl.uri);
+                        button.onclick = () => resumePlaylist(pl.uri, button);
                         button.style.flex = '0 0 auto';
                         button.style.minWidth = '150px';
 
