@@ -3,124 +3,41 @@
 <head>
     <title>Spotify Resume</title>
     <meta charset="UTF-8">
-    <style>
-        .resume-button {
-            background-color: #ffffff;
-            color: #000000;
-            border: 1px solid #1db954;
-            padding: 8px 12px;
-            font-size: 14px;
-            cursor: pointer;
-            transition: background-color 0.3s, color 0.3s;
-        }
-
-        .resume-button.active {
-            background-color: #1db954;
-            color: #ffffff;
-        }
-
-        .progress-bar-container {
-            width: 120px;
-            height: 10px;
-            background: #ccc;
-            border-radius: 4px;
-            overflow: hidden;
-            margin-left: 10px;
-        }
-
-        .progress-bar {
-            height: 100%;
-            background: #1db954;
-            transition: width 0.3s ease;
-        }
-
-        .playlist-item {
-            display: flex;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-
-        #autosave-status {
-            margin-top: 20px;
-            font-size: 0.9em;
-            color: #666;
-        }
-    </style>
 </head>
 <body>
     <h2>Spotify Resume</h2>
 
     <div style="margin-bottom: 10px;">
         <button onclick="savePlayback()">Save Current Playback</button>
-        <button id="stop-autosave">Stop Autosave</button>
     </div>
     <hr>
 
     <div id="playlists"></div>
-    
-    <div id="autosave-status">
-        Autosave status: <span id="autosave-msg">Waiting...</span>
-    </div>
 
     <script>
-        let autosaveInterval;
-        const autosaveMsg = document.getElementById('autosave-msg');
-
-        function resumePlaylist(uri, button) {
-            fetch('/resume', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ playlist_uri: uri })
-            }).then(res => res.json())
-              .then(data => {
-                  alert(data.status || data.error);
-                  setActiveButton(button);
-              });
-        }
-
-        function setActiveButton(button) {
-            // Remove active class from all buttons
-            document.querySelectorAll('.resume-button').forEach(btn => {
-                btn.classList.remove('active');
-            });
-            // Add active class to the pressed button
-            button.classList.add('active');
-        }
-
         function savePlayback() {
             fetch('/save')
                 .then(res => res.json())
                 .then(data => {
                     alert(data.status || data.error);
-                    if (data.status === "saved") {
-                        updateTrackInfo();
-                    }
+                    loadPlaylists(); // refresh progress bars
                 });
         }
 
-        function updateTrackInfo() {
-            fetch('/playlists')
-                .then(res => res.json())
-                .then(playlists => {
-                    playlists.forEach(pl => {
-                        const trackInfoElement = document.querySelector(`[data-uri="${pl.uri}"] .track-info`);
-                        const progressBarElement = document.querySelector(`[data-uri="${pl.uri}"] .progress-bar`);
-
-                        if (trackInfoElement) {
-                            trackInfoElement.textContent = pl.artist ? `${pl.artist} - ${pl.album} - ${pl.track}` : "No track data";
-                        }
-
-                        if (progressBarElement) {
-                            progressBarElement.style.width = pl.progress_pct !== null ? pl.progress_pct + '%' : '0%';
-                        }
-                    });
-                });
+        function resumePlaylist(uri) {
+            fetch('/resume', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ playlist_uri: uri })
+            }).then(res => res.json())
+              .then(data => alert(data.status || data.error));
         }
 
         function loadPlaylists() {
             fetch('/playlists')
                 .then(res => res.json())
                 .then(playlists => {
+                    // 🔤 Sort alphabetically by playlist name
                     playlists.sort((a, b) => a.name.localeCompare(b.name));
 
                     const container = document.getElementById('playlists');
@@ -132,7 +49,6 @@
                         div.style.alignItems = 'center';
                         div.style.gap = '10px';
                         div.style.marginBottom = '10px';
-                        div.setAttribute('data-uri', pl.uri);
 
                         const button = document.createElement('button');
                         button.style.textAlign = 'left';
@@ -150,55 +66,24 @@
                         progressContainer.style.overflow = 'hidden';
 
                         const progressBar = document.createElement('div');
-                        progressBar.className = 'progress-bar';
                         progressBar.style.height = '100%';
                         progressBar.style.background = '#1db954';
                         progressBar.style.width = pl.progress_pct !== null ? pl.progress_pct + '%' : '0%';
-                        progressBar.style.transition = 'width 0.3s ease';
 
-                        const infoText = document.createElement('div');
-                        infoText.className = 'track-info';
-                        infoText.textContent = pl.artist ? `${pl.artist} - ${pl.album} - ${pl.track}` : "No track data";
-                        infoText.style.fontSize = '0.9em';
-                        infoText.style.color = '#666';
-                        infoText.style.flex = '1';
+                        const trackInfo = document.createElement('span');
+                        trackInfo.textContent = pl.artist ? `${pl.artist} - ${pl.album} - ${pl.track}` : "No track info";
 
                         progressContainer.appendChild(progressBar);
 
                         div.appendChild(button);
                         div.appendChild(progressContainer);
-                        div.appendChild(infoText);
+                        div.appendChild(trackInfo);
                         container.appendChild(div);
                     });
                 });
         }
 
         loadPlaylists();
-
-
-        function startAutosave() {
-            if (autosaveInterval) clearInterval(autosaveInterval);
-
-            autosaveInterval = setInterval(() => {
-                fetch('/save')
-                    .then(res => res.json())
-                    .then(data => {
-                        const now = new Date().toLocaleTimeString();
-                        autosaveMsg.textContent = `Saved at ${now}`;
-                        console.log('Autosave:', data.status || data.error);
-                    });
-            }, 60000);
-        }
-
-        // Stop autosave
-        document.getElementById('stop-autosave').onclick = () => {
-            clearInterval(autosaveInterval);
-            autosaveMsg.textContent = 'Autosave stopped';
-            console.log('Autosave disabled');
-        };
-
-        loadPlaylists();
-        startAutosave();
     </script>
 </body>
 </html>
