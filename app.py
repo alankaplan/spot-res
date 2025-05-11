@@ -105,10 +105,6 @@ def get_playlists():
         artist = album = track = None
 
         if saved:
-            artist = saved.get("artist")
-            album = saved.get("album")
-            track = saved.get("track")
-
             try:
                 playlist_id = playlist["id"]
                 tracks = []
@@ -126,9 +122,26 @@ def get_playlists():
                 if saved["track_uri"] in tracks:
                     index = tracks.index(saved["track_uri"])
                     progress_pct = int((index / len(tracks)) * 100)
+                    
+                    # Get track details for the saved track
+                    track_info = sp.track(saved["track_uri"])
+                    artist = track_info["artists"][0]["name"]
+                    album = track_info["album"]["name"]
+                    track = track_info["name"]
             except Exception as e:
                 print("Error processing playlist progress:", e)
-                progress_pct = None
+
+        else:
+            # No saved progress, get the first track info
+            try:
+                playlist_id = playlist["id"]
+                response = sp.playlist_items(playlist_id, limit=1, fields="items.track(uri,name,album(name),artists(name))")
+                first_track = response["items"][0]["track"]
+                artist = first_track["artists"][0]["name"]
+                album = first_track["album"]["name"]
+                track = first_track["name"]
+            except Exception as e:
+                print("Error fetching first track for unsaved playlist:", e)
 
         result.append({
             "name": playlist["name"],
@@ -140,6 +153,7 @@ def get_playlists():
         })
 
     return jsonify(result)
+
 
 
 @app.route("/save")
