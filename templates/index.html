@@ -10,6 +10,10 @@
             color: green;
             margin-left: 10px;
         }
+        #loading-indicator {
+            font-size: 0.9em;
+            color: #666;
+        }
     </style>
 </head>
 <body>
@@ -17,10 +21,11 @@
 
     <div style="margin-bottom: 10px;">
         <button onclick="savePlayback()">Save Current Playback</button>
-        <span id="saved-message">Saved!</span>
+        <span id="saved-message">Saved at <span id="saved-timestamp"></span></span>
     </div>
     <hr>
 
+    <div id="loading-indicator">Loading playlists...</div>
     <div id="playlists"></div>
 
     <script>
@@ -30,7 +35,7 @@
                 .then(data => {
                     if (data.status) {
                         showSavedMessage();
-                        loadPlaylists(); // Instantly update playlists
+                        loadPlaylists();
                     } else {
                         alert(data.error);
                     }
@@ -39,10 +44,10 @@
 
         function showSavedMessage() {
             const savedMessage = document.getElementById("saved-message");
+            const timestamp = document.getElementById("saved-timestamp");
+            const now = new Date().toLocaleTimeString();
+            timestamp.textContent = now;
             savedMessage.style.display = "inline";
-            setTimeout(() => {
-                savedMessage.style.display = "none";
-            }, 2000);
         }
 
         function resumePlaylist(uri) {
@@ -55,6 +60,9 @@
         }
 
         function loadPlaylists() {
+            const loadingIndicator = document.getElementById("loading-indicator");
+            loadingIndicator.style.display = "block";
+
             fetch('/playlists')
                 .then(res => res.json())
                 .then(playlists => {
@@ -99,9 +107,12 @@
                         div.appendChild(trackInfo);
                         container.appendChild(div);
                     });
+
+                    loadingIndicator.style.display = "none";
                 });
         }
 
+        // Load playlists on startup
         loadPlaylists();
     </script>
 </body>
