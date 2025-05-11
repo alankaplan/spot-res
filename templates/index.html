@@ -3,12 +3,21 @@
 <head>
     <title>Spotify Resume</title>
     <meta charset="UTF-8">
+    <style>
+        #saved-message {
+            display: none;
+            font-size: 0.9em;
+            color: green;
+            margin-left: 10px;
+        }
+    </style>
 </head>
 <body>
     <h2>Spotify Resume</h2>
 
     <div style="margin-bottom: 10px;">
         <button onclick="savePlayback()">Save Current Playback</button>
+        <span id="saved-message">Saved!</span>
     </div>
     <hr>
 
@@ -19,9 +28,21 @@
             fetch('/save')
                 .then(res => res.json())
                 .then(data => {
-                    alert(data.status || data.error);
-                    loadPlaylists(); // refresh progress bars
+                    if (data.status) {
+                        showSavedMessage();
+                        loadPlaylists(); // Instantly update playlists
+                    } else {
+                        alert(data.error);
+                    }
                 });
+        }
+
+        function showSavedMessage() {
+            const savedMessage = document.getElementById("saved-message");
+            savedMessage.style.display = "inline";
+            setTimeout(() => {
+                savedMessage.style.display = "none";
+            }, 2000);
         }
 
         function resumePlaylist(uri) {
@@ -37,9 +58,7 @@
             fetch('/playlists')
                 .then(res => res.json())
                 .then(playlists => {
-                    // 🔤 Sort alphabetically by playlist name
                     playlists.sort((a, b) => a.name.localeCompare(b.name));
-
                     const container = document.getElementById('playlists');
                     container.innerHTML = '';
 
