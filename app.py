@@ -87,6 +87,7 @@ def callback():
     session["token_info"] = token_info
     return redirect("/")
 
+
 @app.route("/playlists")
 def get_playlists():
     token_info = session.get("token_info")
@@ -101,58 +102,76 @@ def get_playlists():
         uri = playlist["uri"]
         saved = saved_data.get(uri)
         progress_pct = None
+        artist = album = track = None
 
         if saved:
+            artist = saved.get("artist")
+            album = saved.get("album")
+            track = saved.get("track")
+
             try:
                 playlist_id = playlist["id"]
                 tracks = []
                 offset = 0
 
-                # Load all tracks in the playlist
+                # Handle paginated results
                 while True:
                     response = sp.playlist_items(playlist_id, offset=offset, fields="items.track.uri,total,next")
                     tracks += [item["track"]["uri"] for item in response["items"] if item["track"]]
-                    if not response.get("next"):
+                    if response.get("next"):
+                        offset += len(response["items"])
+                    else:
                         break
-                    offset += len(response["items"])
 
                 if saved["track_uri"] in tracks:
                     index = tracks.index(saved["track_uri"])
                     progress_pct = int((index / len(tracks)) * 100)
-            except:
+            except Exception as e:
+                print("Error processing playlist progress:", e)
                 progress_pct = None
 
         result.append({
             "name": playlist["name"],
             "uri": uri,
-            "progress_pct": progress_pct
+            "progress_pct": progress_pct,
+            "artist": artist,
+            "album": album,
+            "track": track
         })
 
-    return jsonify(sorted(result, key=lambda x: x["name"]))
+    return jsonify(result)
+
 
 @app.route("/save")
 def save_playback():
     token_info = session.get("token_info")
     sp = spotipy.Spotify(auth=token_info["access_token"])
     playback = sp.current_playback()
-    
     if playback and playback.get("context"):
         user_id = sp.me()["id"]
         playlist_uri = playback["context"]["uri"]
         track_uri = playback["item"]["uri"]
         progress_ms = playback["progress_ms"]
 
+        artist_name = ", ".join([artist["name"] for artist in playback["item"]["artists"]])
+        album_name = playback["item"]["album"]["name"]
+        track_name = playback["item"]["name"]
+
         if user_id not in playback_store:
             playback_store[user_id] = {}
 
         playback_store[user_id][playlist_uri] = {
             "track_uri": track_uri,
-            "progress_ms": progress_ms
+            "progress_ms": progress_ms,
+            "artist": artist_name,
+            "album": album_name,
+            "track": track_name
         }
         save_playback_data()
+        push_json_to_github()
         return {"status": "saved"}
-    
     return {"error": "no playback"}, 400
+
 
 @app.route("/resume", methods=["POST"])
 def resume():

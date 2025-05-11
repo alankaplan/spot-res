@@ -102,32 +102,55 @@
             fetch('/playlists')
                 .then(res => res.json())
                 .then(playlists => {
+                    playlists.sort((a, b) => a.name.localeCompare(b.name));
+
                     const container = document.getElementById('playlists');
                     container.innerHTML = '';
 
                     playlists.forEach(pl => {
                         const div = document.createElement('div');
-                        div.className = 'playlist-item';
+                        div.style.display = 'flex';
+                        div.style.alignItems = 'center';
+                        div.style.gap = '10px';
+                        div.style.marginBottom = '10px';
 
                         const button = document.createElement('button');
-                        button.className = 'resume-button';
-                        button.textContent = pl.name;
-                        button.onclick = () => resumePlaylist(pl.uri, button);
+                        button.style.textAlign = 'left';
+                        button.style.padding = '6px 12px';
+                        button.textContent = `▶ Resume: ${pl.name}`;
+                        button.onclick = () => resumePlaylist(pl.uri);
+                        button.style.flex = '0 0 auto';
+                        button.style.minWidth = '150px';
 
                         const progressContainer = document.createElement('div');
-                        progressContainer.className = 'progress-bar-container';
+                        progressContainer.style.width = '120px';
+                        progressContainer.style.height = '10px';
+                        progressContainer.style.background = '#ccc';
+                        progressContainer.style.borderRadius = '4px';
+                        progressContainer.style.overflow = 'hidden';
 
                         const progressBar = document.createElement('div');
-                        progressBar.className = 'progress-bar';
+                        progressBar.style.height = '100%';
+                        progressBar.style.background = '#1db954';
                         progressBar.style.width = pl.progress_pct !== null ? pl.progress_pct + '%' : '0%';
+                        progressBar.style.transition = 'width 0.3s ease';
+
+                        const infoText = document.createElement('div');
+                        infoText.textContent = pl.artist ? `${pl.artist} - ${pl.album} - ${pl.track}` : "No track data";
+                        infoText.style.fontSize = '0.9em';
+                        infoText.style.color = '#666';
+                        infoText.style.flex = '1';
 
                         progressContainer.appendChild(progressBar);
+
                         div.appendChild(button);
                         div.appendChild(progressContainer);
+                        div.appendChild(infoText);
                         container.appendChild(div);
                     });
                 });
         }
+
 
         function startAutosave() {
             if (autosaveInterval) clearInterval(autosaveInterval);
