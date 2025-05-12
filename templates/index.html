@@ -4,139 +4,136 @@
     <title>Spotify Resume</title>
     <meta charset="UTF-8">
     <style>
-        #saved-message {
-            display: none;
-            font-size: 0.9em;
-            color: green;
-            margin-left: 10px;
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
         }
-        #loading-indicator {
-            font-size: 0.9em;
-            color: #666;
-        }
-
-        .resume-button {
+        button {
             background-color: white;
             color: black;
-            border: 1px solid #ddd;
-            padding: 6px 12px;
+            border: 2px solid #1db954;
+            padding: 8px 12px;
+            margin-bottom: 8px;
             cursor: pointer;
-            transition: background-color 0.3s;
+            transition: background 0.3s;
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
         }
-
-        .resume-button.active {
+        button:active {
             background-color: #1db954;
             color: white;
+        }
+        .progress-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+        .progress-bar {
+            height: 8px;
+            background-color: #ccc;
+            border-radius: 4px;
+            overflow: hidden;
+            width: 120px;
+        }
+        .progress-fill {
+            height: 100%;
+            background-color: #1db954;
+            width: 0%;
+            transition: width 0.3s;
+        }
+        .track-info {
+            font-size: 0.9em;
+            color: #333;
+        }
+        #save-status {
+            margin-top: 15px;
+            font-size: 0.9em;
+            color: #666;
         }
     </style>
 </head>
 <body>
     <h2>Spotify Resume</h2>
 
-    <div style="margin-bottom: 10px;">
-        <button onclick="savePlayback()">Save Current Playback</button>
-        <span id="saved-message">Saved at <span id="saved-timestamp"></span></span>
+    <div style="margin-bottom: 15px;">
+        <button onclick="savePlayback()">💾 Save Current Playback</button>
     </div>
     <hr>
-
-    <div id="loading-indicator">Loading playlists...</div>
     <div id="playlists"></div>
+    <div id="save-status">Loading...</div>
 
     <script>
-        function savePlayback() {
-            fetch('/save')
-                .then(res => res.json())
-                .then(data => {
-                    if (data.status) {
-                        showSavedMessage();
-                        loadPlaylists();
-                    } else {
-                        alert(data.error);
-                    }
-                });
-        }
-
-        function showSavedMessage() {
-            const savedMessage = document.getElementById("saved-message");
-            const timestamp = document.getElementById("saved-timestamp");
-            const now = new Date().toLocaleTimeString();
-            timestamp.textContent = now;
-            savedMessage.style.display = "inline";
-        }
-
-        function resumePlaylist(uri, button) {
-            fetch('/resume', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ playlist_uri: uri })
-            }).then(res => res.json())
-              .then(data => {
-                  alert(data.status || data.error);
-                  if (data.status) {
-                      highlightActiveButton(button);
-                  }
-              });
-        }
-
-        function highlightActiveButton(button) {
-            const buttons = document.querySelectorAll('.resume-button');
-            buttons.forEach(btn => btn.classList.remove('active'));
-            button.classList.add('active');
-        }
-
         function loadPlaylists() {
-            const loadingIndicator = document.getElementById("loading-indicator");
-            loadingIndicator.style.display = "block";
-
+            document.getElementById("save-status").textContent = "Loading...";
             fetch('/playlists')
                 .then(res => res.json())
                 .then(playlists => {
-                    playlists.sort((a, b) => a.name.localeCompare(b.name));
-                    const container = document.getElementById('playlists');
-                    container.innerHTML = '';
+                    const container = document.getElementById("playlists");
+                    container.innerHTML = "";
 
                     playlists.forEach(pl => {
-                        const div = document.createElement('div');
-                        div.style.display = 'flex';
-                        div.style.alignItems = 'center';
-                        div.style.gap = '10px';
-                        div.style.marginBottom = '10px';
+                        const div = document.createElement("div");
+                        div.className = "progress-container";
 
-                        const button = document.createElement('button');
-                        button.className = 'resume-button';
-                        button.textContent = `▶ Resume: ${pl.name}`;
-                        button.onclick = () => resumePlaylist(pl.uri, button);
-                        button.style.flex = '0 0 auto';
-                        button.style.minWidth = '150px';
+                        const button = document.createElement("button");
+                        button.textContent = `▶ ${pl.name}`;
+                        button.onclick = () => resumePlaylist(pl.uri);
 
-                        const progressContainer = document.createElement('div');
-                        progressContainer.style.width = '120px';
-                        progressContainer.style.height = '10px';
-                        progressContainer.style.background = '#ccc';
-                        progressContainer.style.borderRadius = '4px';
-                        progressContainer.style.overflow = 'hidden';
+                        const trackInfo = document.createElement("div");
+                        trackInfo.className = "track-info";
+                        trackInfo.textContent = pl.track_info;
 
-                        const progressBar = document.createElement('div');
-                        progressBar.style.height = '100%';
-                        progressBar.style.background = '#1db954';
-                        progressBar.style.width = pl.progress_pct !== null ? pl.progress_pct + '%' : '0%';
-
-                        const trackInfo = document.createElement('span');
-                        trackInfo.textContent = pl.artist ? `${pl.artist} - ${pl.album} - ${pl.track}` : "No track info";
-
-                        progressContainer.appendChild(progressBar);
+                        const progressBar = document.createElement("div");
+                        progressBar.className = "progress-bar";
+                        const progressFill = document.createElement("div");
+                        progressFill.className = "progress-fill";
+                        progressFill.style.width = pl.progress_pct ? `${pl.progress_pct}%` : "0%";
+                        progressBar.appendChild(progressFill);
 
                         div.appendChild(button);
-                        div.appendChild(progressContainer);
+                        div.appendChild(progressBar);
                         div.appendChild(trackInfo);
                         container.appendChild(div);
                     });
 
-                    loadingIndicator.style.display = "none";
+                    document.getElementById("save-status").textContent = "Loaded playlists";
                 });
         }
 
-        // Load playlists on startup
+        function resumePlaylist(uri) {
+            const buttons = document.querySelectorAll("button");
+            buttons.forEach(btn => btn.style.backgroundColor = "white"); // Reset colors
+
+            fetch('/resume', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ playlist_uri: uri })
+            })
+            .then(res => res.json())
+            .then(data => {
+                alert(data.status || data.error);
+                loadPlaylists();
+            });
+
+            const button = document.querySelector(`button[onclick='resumePlaylist("${uri}")']`);
+            if (button) button.style.backgroundColor = "#1db954";
+        }
+
+        function savePlayback() {
+            document.getElementById("save-status").textContent = "Saving...";
+            fetch('/save')
+                .then(res => res.json())
+                .then(data => {
+                    const now = new Date().toLocaleTimeString();
+                    document.getElementById("save-status").textContent = `Saved at ${now}`;
+                    loadPlaylists();
+                });
+        }
+
         loadPlaylists();
     </script>
 </body>
