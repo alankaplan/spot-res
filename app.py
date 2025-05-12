@@ -139,30 +139,44 @@ def save_playback():
 
 @app.route("/resume", methods=["POST"])
 def resume():
-    sp = get_spotify_client()
-    if not sp:
-        return {"error": "User not authenticated"}, 401
-
+    token_info = session.get("token_info")
+    sp = spotipy.Spotify(auth=token_info["access_token"])
     user_id = sp.me()["id"]
     data = request.get_json()
     playlist_uri = data.get("playlist_uri")
 
     entry = playback_store.get(user_id, {}).get(playlist_uri)
-    try:
-        sp.pause_playback()  # Force fresh session
-    except:
-        print("No playback to stop")
 
     if entry:
-        sp.start_playback(
-            context_uri=playlist_uri,
-            offset={"uri": entry["track_uri"]},
-            position_ms=entry["progress_ms"]
-        )
-        return {"status": "resumed"}
+        try:
+            # Attempt to resume playback
+            sp.start_playback(
+                context_uri=playlist_uri,
+                offset={"uri": entry["track_uri"]},
+                position_ms=0
+            )
+            return {"status": "resumed"}
+        except spotipy.exceptions.SpotifyException as e:
+            if "NO_ACTIVE_DEVICE" in str(e):
+                # Auto-activate a device
+                devices = sp.devices()["devices"]
+                if devices:
+                    first_device_id = devices[0]["id"]
+                    sp.transfer_playback(first_device_id, force_play=True)
+                    # Retry starting playback
+                    sp.start_playback(
+                        context_uri=playlist_uri,
+                        offset={"uri": entry["track_uri"]},
+                        position_ms=0
+                    )
+                    return {"status": "resumed (device activated)"}
+                else:
+                    return {"error": "No active device found and no devices available"}, 400
 
+    # fallback: just play the playlist
     sp.start_playback(context_uri=playlist_uri)
     return {"status": "started"}
+
 
 @app.route("/logout")
 def logout():
